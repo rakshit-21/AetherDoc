@@ -1,0 +1,25 @@
+{
+  "users": [
+    {
+      "id": "u1",
+      "username": "admin",
+      "passwordHash": "$2a$08$my/lYog9/efCD0HpknymmuC6BExZedrfjGgu89EOTrY7bX8aqrPiO",
+      "role": "Admin"
+    },
+    {
+      "id": "u2",
+      "username": "editor",
+      "passwordHash": "$2a$08$BhykPLqOdtR8SD5pyiB0/ebB.8rUxbo4Ri4GyiYF2rG6HFcy6MQYC",
+      "role": "Editor"
+    },
+    {
+      "id": "u3",
+      "username": "viewer",
+      "passwordHash": "$2a$08$yJ6sUOjbKapBmmFhkdWYO.HNPJ5jZ8yBOcLS0UsGh4mOIP0kgwcTe",
+      "role": "Viewer"
+    }
+  ],
+  "documents": [],
+  "chunks": [],
+  "logs": []
+}
