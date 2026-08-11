@@ -119,12 +119,15 @@ app.get(
     }
 
     try {
-      if (!fs.existsSync(doc.path)) {
+      const filename = path.basename(doc.path);
+      const docPath = path.join(uploadsDir, filename);
+
+      if (!fs.existsSync(docPath)) {
         return res.status(404).json({ error: 'Document file missing from storage' });
       }
 
       // Read file content as-is (unencrypted)
-      const buffer = fs.readFileSync(doc.path);
+      const buffer = fs.readFileSync(docPath);
       
       db.logActivity(
         req.user.username, 
@@ -158,8 +161,10 @@ app.delete(
 
     try {
       // Delete file from disk
-      if (fs.existsSync(doc.path)) {
-        fs.unlinkSync(doc.path);
+      const filename = path.basename(doc.path);
+      const docPath = path.join(uploadsDir, filename);
+      if (fs.existsSync(docPath)) {
+        fs.unlinkSync(docPath);
       }
       
       // Delete from DB and chunks
