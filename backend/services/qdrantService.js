@@ -7,6 +7,8 @@ const QDRANT_API_KEY = process.env.QDRANT_API_KEY || null;
 const COLLECTION_NAME = 'document_chunks';
 
 let isQdrantHealthy = false;
+let lastHealthCheckTime = 0;
+const HEALTH_CHECK_COOLDOWN = 60 * 1000; // 60 seconds
 
 // Builds headers for every Qdrant request, attaching the API key when
 // present (required for Qdrant Cloud, unnecessary/ignored for local Docker).
@@ -18,8 +20,14 @@ const buildHeaders = (extra = {}) => {
   return headers;
 };
 
-// Check connectivity to Qdrant with short timeout
+// Check connectivity to Qdrant with short timeout and caching/cooldown
 async function checkHealth() {
+  const now = Date.now();
+  if (now - lastHealthCheckTime < HEALTH_CHECK_COOLDOWN) {
+    return isQdrantHealthy;
+  }
+  
+  lastHealthCheckTime = now;
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000); // Cloud clusters are remote — give a bit more time than the old 1s local-only timeout
