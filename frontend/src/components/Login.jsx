@@ -157,24 +157,7 @@ export default function Login({ onAuthSuccess }) {
           )}
         </div>
 
-        {isLogin && (
-          <div style={{ 
-            marginTop: '2rem', 
-            padding: '1rem', 
-            background: 'rgba(255, 255, 255, 0.02)', 
-            border: '1px solid rgba(255, 255, 255, 0.04)', 
-            borderRadius: '8px', 
-            fontSize: '0.8rem' 
-          }}>
-            <p style={{ fontWeight: 600, marginBottom: '0.25rem', color: 'var(--text-primary)' }}>Seeded Test User:</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
-              <div>
-                <strong>Username / Password:</strong>
-                <div style={{ color: 'var(--text-muted)' }}>admin / admin123</div>
-              </div>
-            </div>
-          </div>
-        )}
+
       </div>
     </div>
   );
