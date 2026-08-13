@@ -103,8 +103,12 @@ app.post(
 );
 
 app.get('/api/documents', securityAgent.authMiddleware, (req, res) => {
-  const docs = db.getDocuments();
-  res.json(docs);
+  const allDocs = db.getDocuments();
+  if (req.user.role === 'Admin') {
+    return res.json(allDocs);
+  }
+  const userDocs = allDocs.filter(doc => doc.owner === req.user.username);
+  res.json(userDocs);
 });
 
 // Retrieve file contents for viewing (kept decrypt endpoint name for frontend compatibility)
@@ -116,6 +120,11 @@ app.get(
     const doc = db.getDocumentById(id);
     if (!doc) {
       return res.status(404).json({ error: 'Document not found' });
+    }
+
+    if (req.user.role !== 'Admin' && doc.owner !== req.user.username) {
+      db.logActivity(req.user.username, doc.name, 'SecurityAgent', 'Failed', `Unauthorized attempt to view document`);
+      return res.status(403).json({ error: 'Access denied. You do not own this document.' });
     }
 
     try {
@@ -159,6 +168,11 @@ app.delete(
       return res.status(404).json({ error: 'Document not found' });
     }
 
+    if (req.user.role !== 'Admin' && doc.owner !== req.user.username) {
+      db.logActivity(req.user.username, doc.name, 'SecurityAgent', 'Failed', `Unauthorized attempt to delete document`);
+      return res.status(403).json({ error: 'Access denied. You do not own this document.' });
+    }
+
     try {
       // Delete file from disk
       const filename = path.basename(doc.path);
@@ -183,7 +197,16 @@ app.delete(
 app.post('/api/search', securityAgent.authMiddleware, async (req, res) => {
   const { query, docIds } = req.body;
   try {
-    const result = await coordinatorAgent.routeQuery(query || '', docIds, req.user);
+    let verifiedDocIds = docIds;
+    if (req.user.role !== 'Admin') {
+      const userDocIds = db.getDocuments().filter(d => d.owner === req.user.username).map(d => d.id);
+      if (docIds && docIds.length > 0) {
+        verifiedDocIds = docIds.filter(id => userDocIds.includes(id));
+      } else {
+        verifiedDocIds = userDocIds;
+      }
+    }
+    const result = await coordinatorAgent.routeQuery(query || '', verifiedDocIds, req.user);
     res.json(result.results || []);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -197,7 +220,16 @@ app.post('/api/chat', securityAgent.authMiddleware, async (req, res) => {
   }
 
   try {
-    const result = await coordinatorAgent.routeQuery(query, docIds, req.user);
+    let verifiedDocIds = docIds;
+    if (req.user.role !== 'Admin') {
+      const userDocIds = db.getDocuments().filter(d => d.owner === req.user.username).map(d => d.id);
+      if (docIds && docIds.length > 0) {
+        verifiedDocIds = docIds.filter(id => userDocIds.includes(id));
+      } else {
+        verifiedDocIds = userDocIds;
+      }
+    }
+    const result = await coordinatorAgent.routeQuery(query, verifiedDocIds, req.user);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
