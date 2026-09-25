@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import '../dotenv-config.js';
 
 const apiKey = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 let aiClient = null;
 
 if (apiKey) {
@@ -63,6 +64,30 @@ const createMockEmbedding = (text) => {
   return vector.map(val => val / (magnitude || 1));
 };
 
+const CANDIDATE_MODELS = [
+  process.env.GEMINI_MODEL,
+  'gemini-3.5-flash-lite',
+  'gemini-3.8-flash',
+  'gemini-3.1-flash-lite'
+].filter(Boolean);
+
+// Resilient wrapper that tries candidate models in order to circumvent 503 / high demand spikes
+async function generateContentWithFallback(prompt) {
+  if (!aiClient) return null;
+  let lastError = null;
+  for (const modelName of CANDIDATE_MODELS) {
+    try {
+      const model = aiClient.getGenerativeModel({ model: modelName });
+      const response = await model.generateContent(prompt);
+      return response.response.text();
+    } catch (err) {
+      lastError = err;
+      console.warn(`Gemini model "${modelName}" unavailable (${err.message?.substring(0, 70)}...). Trying fallback model...`);
+    }
+  }
+  throw lastError;
+}
+
 export const aiService = {
   isSimulated: () => !aiClient,
 
@@ -102,9 +127,7 @@ Document File Name: ${filename}
 Document Text:
 ${text.substring(0, 6000)}`;
 
-        const model = aiClient.getGenerativeModel({ model: 'gemini-3.5-flash' });
-        const response = await model.generateContent(prompt);
-        const responseText = response.response.text();
+        const responseText = await generateContentWithFallback(prompt);
         // Parse JSON from code blocks if necessary
         const cleanJson = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
         return JSON.parse(cleanJson);
@@ -160,9 +183,8 @@ ${contextText}
 
 User Query: ${query}`;
 
-        const model = aiClient.getGenerativeModel({ model: 'gemini-3.5-flash' });
-        const response = await model.generateContent(prompt);
-        return response.response.text();
+        const responseText = await generateContentWithFallback(prompt);
+        return responseText;
       } catch (err) {
         console.error('Gemini RAG failed, falling back to simulated:', err.message);
       }
@@ -174,9 +196,12 @@ User Query: ${query}`;
     }
 
     const citations = chunks.map((c, i) => `[Source ${i + 1}] (${c.docName})`);
+    const noteReason = aiClient 
+      ? 'Gemini API is temporarily unavailable' 
+      : 'no Gemini API Key is configured';
     const answer = `Based on the retrieved context, here is what I found:\n\n` + 
       chunks.map((c, i) => `• From ${citations[i]}: "${c.text.substring(0, 150)}..."`).join('\n\n') +
-      `\n\n[System Note: This answer is running in simulated agent mode because no Gemini API Key is configured.]`;
+      `\n\n[System Note: This answer is running in local fallback mode because ${noteReason}.]`;
 
     return answer;
   },
@@ -196,9 +221,7 @@ Output MUST be a strict JSON object with this format:
 
 User Query: ${query}`;
 
-        const model = aiClient.getGenerativeModel({ model: 'gemini-3.5-flash' });
-        const response = await model.generateContent(prompt);
-        const responseText = response.response.text();
+        const responseText = await generateContentWithFallback(prompt);
         const cleanJson = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
         return JSON.parse(cleanJson).intent;
       } catch (err) {
